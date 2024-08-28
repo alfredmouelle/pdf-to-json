@@ -7,7 +7,7 @@ const os = require("os");
 
 const excludedFields = ["hidden"];
 
-async function extractFields(pdfPath, asArray) {
+async function extractFields(pdfPath) {
   const pdfBytes = fs.readFileSync(pdfPath);
   const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
   const form = pdfDoc.getForm();
@@ -32,25 +32,13 @@ async function extractFields(pdfPath, asArray) {
     }
   });
 
-  const fieldData = {};
-
-  const sortedFields = [...numericFields, ...otherFields];
-
-  if (!asArray) {
-    sortedFields.map(({ name, value }) => {
-      fieldData[name] = value;
-    });
-  }
-
-  return !asArray
-    ? fieldData
-    : sortedFields.map(({ name, value }) => {
-        return `${name}": "${value}`;
-      });
+  return [...numericFields, ...otherFields].map(({ name, value }) => {
+    return `${name}": "${value}`;
+  });
 }
 
-async function saveFormFieldsAsJson(pdfPath, asArray) {
-  const fieldData = await extractFields(pdfPath, asArray);
+async function saveFormFieldsAsJson(pdfPath) {
+  const fieldData = await extractFields(pdfPath);
 
   const outputDir = path.join(os.homedir(), "Downloads", "pdf-to-json");
   if (!fs.existsSync(outputDir)) {
@@ -61,18 +49,21 @@ async function saveFormFieldsAsJson(pdfPath, asArray) {
     path.basename(pdfPath, path.extname(pdfPath)) + ".json";
   const outputPath = path.join(outputDir, outputFileName);
 
-  fs.writeFileSync(outputPath, JSON.stringify(fieldData, null, 2));
+  const json = JSON.stringify(fieldData, null, 2)
+    .replaceAll('\\"', '"')
+    .replace("[", "{");
+
+  fs.writeFileSync(outputPath, `${json.slice(0, -1)}}`);
   console.log(`JSON generated at location: ${outputPath}`);
 }
 
 const pdfFilePath = process.argv[2];
-const asArray = process.argv[3] === "true";
 
 if (!pdfFilePath) {
   console.error("Please provide the base PDF to work with.");
   process.exit(1);
 }
 
-saveFormFieldsAsJson(pdfFilePath, asArray).catch((err) =>
+saveFormFieldsAsJson(pdfFilePath).catch((err) =>
   console.error("An error encountered during PDF to JSON parsing:", err)
 );

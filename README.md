@@ -27,7 +27,3 @@ Example : pdftojson /path_to_you_pdf_file
 ### Output
 
 The output file will be stored to you "Downloads" folder inside the "pdf-to-json" folder
-
-### Params
-
-Add true at the end of the command to obtain the result as an entry. This will keep your fields order by page from the PDF. You will need to manually adjust the result.
