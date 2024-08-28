@@ -1,0 +1,22 @@
+{
+  "name": "@alfredmouelle/pdf-to-json",
+  "version": "1.0.0",
+  "description": "Extract fields from a PDF file and convert them to JSON",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "categories": [
+    "Other"
+  ],
+  "author": {
+    "name": "Alfred Mouelle",
+    "email": "alfredmouelle@gmail.com",
+    "url": "https://alfred-mouelle.zd.fr"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "dependencies": {
+    "pdf-lib": "^1.17.1"
+  }
+}

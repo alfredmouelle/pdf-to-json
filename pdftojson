@@ -1,0 +1,78 @@
+#!/usr/bin/env node
+
+const fs = require("fs");
+const { PDFDocument } = require("pdf-lib");
+const path = require("path");
+const os = require("os");
+
+const excludedFields = ["hidden"];
+
+async function extractFields(pdfPath, asArray) {
+  const pdfBytes = fs.readFileSync(pdfPath);
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  const form = pdfDoc.getForm();
+  const fields = form.getFields();
+
+  const otherFields = [];
+  const numericFields = [];
+
+  fields.map((field) => {
+    const fieldName = field.getName();
+    if (excludedFields.includes(fieldName)) {
+      return;
+    }
+
+    if (fieldName.match(/^\d/)) {
+      numericFields.push({
+        name: fieldName,
+        value: fieldName.match(/^\d+$/) ? fieldName : "",
+      });
+    } else {
+      otherFields.push({ name: fieldName, value: "" });
+    }
+  });
+
+  const fieldData = {};
+
+  const sortedFields = [...numericFields, ...otherFields];
+
+  if (!asArray) {
+    sortedFields.map(({ name, value }) => {
+      fieldData[name] = value;
+    });
+  }
+
+  return !asArray
+    ? fieldData
+    : sortedFields.map(({ name, value }) => {
+        return `${name}": "${value}`;
+      });
+}
+
+async function saveFormFieldsAsJson(pdfPath, asArray) {
+  const fieldData = await extractFields(pdfPath, asArray);
+
+  const outputDir = path.join(os.homedir(), "Downloads", "pdf-to-json");
+  if (!fs.existsSync(outputDir)) {
+    fs.mkdirSync(outputDir, { recursive: true });
+  }
+
+  const outputFileName =
+    path.basename(pdfPath, path.extname(pdfPath)) + ".json";
+  const outputPath = path.join(outputDir, outputFileName);
+
+  fs.writeFileSync(outputPath, JSON.stringify(fieldData, null, 2));
+  console.log(`JSON generated at location: ${outputPath}`);
+}
+
+const pdfFilePath = process.argv[2];
+const asArray = process.argv[3] === "true";
+
+if (!pdfFilePath) {
+  console.error("Please provide the base PDF to work with.");
+  process.exit(1);
+}
+
+saveFormFieldsAsJson(pdfFilePath, asArray).catch((err) =>
+  console.error("An error encountered during PDF to JSON parsing:", err)
+);
