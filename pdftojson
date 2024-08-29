@@ -13,28 +13,23 @@ async function extractFields(pdfPath) {
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
-  const otherFields = [];
-  const numericFields = [];
-
+  const fieldsArray = [];
   fields.map((field) => {
     const fieldName = field.getName();
     if (excludedFields.includes(fieldName)) {
       return;
     }
 
+    let value = "";
     if (fieldName.match(/^\d/)) {
-      numericFields.push({
-        name: fieldName,
-        value: fieldName.match(/^\d+$/) ? fieldName : "",
-      });
-    } else {
-      otherFields.push({ name: fieldName, value: "" });
+      const isLooping = fieldName.match(/^\d+\$\d+$/);
+      value = fieldName.match(/^\d+$/) || isLooping ? fieldName : "";
     }
+
+    fieldsArray.push({ name: fieldName, value });
   });
 
-  return [...numericFields, ...otherFields].map(({ name, value }) => {
-    return `${name}": "${value}`;
-  });
+  return fieldsArray.map(({ name, value }) => `${name}": "${value}`);
 }
 
 async function saveFormFieldsAsJson(pdfPath) {
@@ -49,11 +44,9 @@ async function saveFormFieldsAsJson(pdfPath) {
     path.basename(pdfPath, path.extname(pdfPath)) + ".json";
   const outputPath = path.join(outputDir, outputFileName);
 
-  const json = JSON.stringify(fieldData, null, 2)
-    .replaceAll('\\"', '"')
-    .replace("[", "{");
+  const json = JSON.stringify(fieldData, null, 2).replaceAll('\\"', '"');
 
-  fs.writeFileSync(outputPath, `${json.slice(0, -1)}}`);
+  fs.writeFileSync(outputPath, `{${json.slice(1, -1)}}`);
   console.log(`JSON generated at location: ${outputPath}`);
 }
 
