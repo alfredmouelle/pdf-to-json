@@ -13,23 +13,30 @@ async function extractFields(pdfPath) {
   const form = pdfDoc.getForm();
   const fields = form.getFields();
 
-  const fieldsArray = [];
+  const fieldsObj = { numeric: [], nonNumeric: [] };
   fields.map((field) => {
     const fieldName = field.getName();
     if (excludedFields.includes(fieldName)) {
       return;
     }
 
-    let value = "";
-    if (fieldName.match(/^\d/)) {
-      const isLooping = fieldName.match(/^\d+\$\d+$/);
-      value = fieldName.match(/^\d+$/) || isLooping ? fieldName : "";
-    }
-
-    fieldsArray.push({ name: fieldName, value });
+    const isNumeric = fieldName.match(/^\d/) || fieldName.match(/^\d+\$\d+$/);
+    fieldsObj[isNumeric ? "numeric" : "nonNumeric"].push({
+      name: fieldName,
+      value: isNumeric ? fieldName : "",
+    });
   });
 
-  return fieldsArray.map(({ name, value }) => `${name}": "${value}`);
+  fieldsObj.numeric.sort((a, b) => Number(a.name) - Number(b.name));
+  fieldsObj.nonNumeric.sort((a, b) =>
+    a.name.localeCompare(b.name, undefined, {
+      ignorePunctuation: true,
+      numeric: true,
+    })
+  );
+  return [...fieldsObj.nonNumeric, ...fieldsObj.numeric].map(
+    ({ name, value }) => `${name}": "${value}`
+  );
 }
 
 async function saveFormFieldsAsJson(pdfPath) {
