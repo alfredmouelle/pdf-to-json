@@ -16,7 +16,7 @@ async function extractFields(pdfPath) {
   const fieldsObj = { numeric: [], nonNumeric: [] };
   fields.map((field) => {
     const fieldName = field.getName();
-    if (excludedFields.includes(fieldName)) {
+    if (excludedFields.includes(fieldName) || fieldName.startsWith('_')) {
       return;
     }
 
