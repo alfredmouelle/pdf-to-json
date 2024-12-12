@@ -1,32 +1,100 @@
 #!/usr/bin/env node
 
 const fs = require("fs");
-const { PDFDocument } = require("pdf-lib");
+const { PDFDocument, PDFField, PDFTextField } = require("pdf-lib");
 const path = require("path");
 const os = require("os");
 
 const excludedFields = ["hidden"];
 
-async function extractFields(pdfPath) {
-  const pdfBytes = fs.readFileSync(pdfPath);
-  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
-  const form = pdfDoc.getForm();
-  const fields = form.getFields();
+/**
+ * @param {string} name
+ * @returns
+ */
+function getIsNumeric(name) {
+  return name.match(/^\d/);
+}
 
+/**
+ * @param {{name: string, value: string}} field
+ */
+function parseCO17(field) {
+  const name = field.name;
+  let value = field.value;
+  const decimalNameSplit = name.split("_D");
+  const isNumeric = getIsNumeric(name);
+
+  if (name === "num_auto") {
+    value = "num_auto";
+  } else if (name === "01a") {
+    value = "01a";
+  } else if (name === "01b") {
+    value = "01b&0-9";
+  } else if (name === "02") {
+    value = "02";
+  } else if (name === "05") {
+    value = "∆05";
+  } else {
+    if (isNumeric) {
+      const realFieldCode = name.split("_")[0];
+
+      if (decimalNameSplit === 1) {
+        value = `⌊${realFieldCode.split("#")[0]}`;
+      } else {
+        if (name.includes("_2_")) {
+          value = `•${realFieldCode}`;
+        } else if (name.endsWith("_1_")) {
+          value = `⌊${realFieldCode}`;
+        } else {
+          value = name.includes("_D")
+            ? `•${realFieldCode.split("#")[0]}`
+            : `⌊${realFieldCode.split("#")[0]}`;
+        }
+      }
+    }
+  }
+
+  return { name, value };
+}
+
+/**
+ * @param {PDFField[]} fields
+ */
+function parse(fields) {
   const fieldsObj = { numeric: [], nonNumeric: [] };
+
+  const program =
+    String(fields.find((field) => field.getName() === "_program").getText()) ||
+    "";
+
   fields.map((field) => {
-    const fieldName = field.getName();
-    if (excludedFields.includes(fieldName) || fieldName.startsWith('_')) {
+    const name = field.getName();
+    if (excludedFields.includes(name) || name.startsWith("_")) {
       return;
     }
 
-    const isNumeric = fieldName.match(/^\d/) || fieldName.match(/^\d+\$\d+$/);
-    fieldsObj[isNumeric ? "numeric" : "nonNumeric"].push({
-      name: fieldName,
-      value: isNumeric ? fieldName : "",
-    });
+    const isNumeric = getIsNumeric(name);
+    let value = isNumeric ? name.split("_")[0] : "";
+
+    let current = { name, value };
+    switch (program.toUpperCase()) {
+      case "CO17":
+        current = parseCO17({ name, value });
+        break;
+      default:
+        break;
+    }
+
+    fieldsObj[isNumeric ? "numeric" : "nonNumeric"].push(current);
   });
 
+  return fieldsObj;
+}
+
+/**
+ * @param {{numeric: PDFField[], nonNumeric: PDFField[]}} fieldsObj
+ */
+function toSorted(fieldsObj) {
   fieldsObj.numeric.sort((a, b) => Number(a.name) - Number(b.name));
   fieldsObj.nonNumeric.sort((a, b) =>
     a.name.localeCompare(b.name, undefined, {
@@ -34,9 +102,16 @@ async function extractFields(pdfPath) {
       numeric: true,
     })
   );
+
   return [...fieldsObj.nonNumeric, ...fieldsObj.numeric].map(
     ({ name, value }) => `${name}": "${value}`
   );
+}
+
+async function extractFields(pdfPath) {
+  const pdfBytes = fs.readFileSync(pdfPath);
+  const pdfDoc = await PDFDocument.load(pdfBytes, { ignoreEncryption: true });
+  return toSorted(parse(pdfDoc.getForm().getFields()));
 }
 
 async function saveFormFieldsAsJson(pdfPath) {
