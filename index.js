@@ -18,10 +18,31 @@ function getIsNumeric(name) {
 /**
  * @param {{name: string, value: string}} field
  */
+function parseT1(field) {
+  const name = field.name;
+  let value = field.value;
+  const isNumeric = getIsNumeric(name);
+
+  const realFieldCode = name.split("_")[0];
+
+  if (name.toUpperCase().includes("_D")) {
+    value = '•';
+  } else if (name.toUpperCase().includes("_U")) {
+    value = '⌊'
+  }
+
+  value = value + (isNumeric && name.includes('_') ? realFieldCode : '');
+
+  return { name, value }
+}
+
+/**
+ * @param {{name: string, value: string}} field
+ */
 function parseCO17(field) {
   const name = field.name;
   let value = field.value;
-  const decimalNameSplit = name.split("_D");
+  const decimalNameSplit = name.toUpperCase().split("_D");
   const isNumeric = getIsNumeric(name);
 
   if (name === "num_auto") {
@@ -46,10 +67,16 @@ function parseCO17(field) {
         } else if (name.endsWith("_1_")) {
           value = `⌊${realFieldCode}`;
         } else {
-          value = name.includes("_D")
+          value = name.toUpperCase().includes("_D")
             ? `•${realFieldCode.split("#")[0]}`
             : `⌊${realFieldCode.split("#")[0]}`;
         }
+      }
+    } else {
+      if (name.toUpperCase().includes("_D")) {
+        value = "•";
+      } else if (name.toUpperCase().includes("_U")) {
+        value = "⌊"
       }
     }
   }
@@ -64,7 +91,7 @@ function parse(fields) {
   const fieldsObj = { numeric: [], nonNumeric: [] };
 
   const program =
-    String(fields.find((field) => field.getName() === "_program").getText()) ||
+    String(fields.find((field) => field.getName() === "_program")?.getText()) ||
     "";
 
   fields.map((field) => {
@@ -80,6 +107,9 @@ function parse(fields) {
     switch (program.toUpperCase()) {
       case "CO17":
         current = parseCO17({ name, value });
+        break;
+      case "T1":
+        current = parseT1({ name, value });
         break;
       default:
         break;
